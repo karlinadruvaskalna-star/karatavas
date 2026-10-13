@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="lv">
+<head>
+<meta charset="UTF-8">
+<title>Karātavas</title>
+<style>
+  :root{
+    --pink-a:#f7c9e6;
+    --pink-b:#f3a9d8;
+    --cream:#fdeecb;
+    --ink:#2b1e1a;
+    --chalk-bg:#2c2620;
+    --board-line:#8a6a3d;
+    --wood:#6b4a2b;
+    --correct:#3fae63;
+    --wrong:#e4577a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#2b1e1a;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at 15% 15%, var(--pink-a), transparent 55%),
+                radial-gradient(circle at 85% 85%, var(--cream), transparent 55%),
+                linear-gradient(135deg, var(--pink-b), var(--cream));
+    color: var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+    overflow-x:hidden;
+  }
+  .stage{
+    position:relative;
+    width:100%;
+    max-width: 980px;
+  }
+  .corner{
+    position:absolute;
+    font-size: 56px;
+    line-height:1;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.08));
+    user-select:none;
+    pointer-events:none;
+  }
+  .corner.tl{ top:-18px; left:-18px; }
+  .corner.tr{ top:-18px; right:-18px; }
+  .corner.bl{ bottom:-18px; left:-18px; }
+  .corner.br{ bottom:-18px; right:-18px; }
+
+  .board{
+    background: rgba(255,255,255,0.55);
+    border-radius: 28px;
+    padding: 32px clamp(16px,4vw,48px) 40px;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 20px 50px rgba(120,60,90,0.18);
+  }
+
+  .title-wrap{
+    display:flex;
+    justify-content:center;
+    margin-bottom: 18px;
+  }
+  .title{
+    background: var(--chalk-bg);
+    color:#f6e9c9;
+    font-family: 'Comic Sans MS', 'Trebuchet MS', cursive, sans-serif;
+    font-weight:700;
+    letter-spacing: 4px;
+    font-size: clamp(26px, 4vw, 38px);
+    padding: 14px 34px;
+    border: 4px solid var(--wood);
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 3px rgba(255,255,255,0.05), 0 6px 0 rgba(0,0,0,0.15);
+  }
+
+  /* ---------- Theme select screen ---------- */
+  #screen-themes{ text-align:center; }
+  #screen-themes p{ font-size: 17px; opacity:0.85; margin-top:0; }
+  .theme-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+    gap: 14px;
+    margin-top: 22px;
+  }
+  .theme-btn{
+    font-family: inherit;
+    font-size: 17px;
+    font-weight:700;
+    padding: 18px 10px;
+    border: none;
+    border-radius: 16px;
+    cursor:pointer;
+    color: #4a2d3a;
+    background: linear-gradient(160deg, #ffe3f3, #ffd0e6);
+    box-shadow: 0 6px 0 #d98cb8, 0 8px 14px rgba(180,80,130,0.25);
+    transition: transform .08s ease;
+  }
+  .theme-btn:hover{ transform: translateY(-2px); }
+  .theme-btn:active{ transform: translateY(3px); box-shadow: 0 3px 0 #d98cb8; }
+
+  /* ---------- Game screen ---------- */
+  #screen-game{ display:none; }
+  .game-layout{
+    display:flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    align-items:flex-start;
+    justify-content:center;
+  }
+  .gallows-col{
+    flex: 0 0 260px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .right-col{
+    flex: 1 1 380px;
+    min-width: 280px;
+  }
+  .meta-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom: 10px;
+    font-size:14px;
+    opacity:0.8;
+  }
+  .attempts-left b{ color:#c23558; }
+
+  .word-display{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+    justify-content:center;
+    margin: 10px 0 22px;
+  }
+  .letter-slot{
+    width: 34px;
+    min-width:34px;
+    text-align:center;
+    font-size: 26px;
+    font-weight:700;
+    border-bottom: 4px solid var(--board-line);
+    padding-bottom: 4px;
+    color:#3a2a22;
+  }
+
+  .keyboard{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(38px,1fr));
+    gap: 6px;
+  }
+  .key{
+    font-family: inherit;
+    font-size: 15px;
+    font-weight:700;
+    padding: 10px 0;
+    border:none;
+    border-radius: 8px;
+    cursor:pointer;
+    background: linear-gradient(160deg,#fff6e0,#ffe9b8);
+    box-shadow: 0 3px 0 #d9ad57;
+    color:#5a3d1a;
+  }
+  .key:hover:not(:disabled){ filter:brightness(1.05); }
+  .key:active:not(:disabled){ transform: translateY(2px); box-shadow:0 1px 0 #d9ad57; }
+  .key:disabled{ cursor:default; opacity:0.55; box-shadow:none; }
+  .key.correct{ background: var(--correct); color:#fff; }
+  .key.wrong{ background: var(--wrong); color:#fff; }
+
+  .theme-tag{
+    display:inline-block;
+    background:#fff;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight:700;
+    color:#a94a75;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+
+  .score-bar{
+    display:flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content:center;
+    margin-bottom: 14px;
+  }
+  .score-pill{
+    background:#fff;
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight:700;
+    color:#4a2d3a;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .score-pill span{ color:#a94a75; }
+
+  .loading-word{
+    text-align:center;
+    font-size: 15px;
+    opacity:0.75;
+    margin: 10px 0 22px;
+  }
+
+  .whole-word-guess{
+    display:flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap:wrap;
+  }
+  .whole-word-guess input{
+    flex: 1 1 160px;
+    font-family: inherit;
+    font-size: 15px;
+    padding: 10px 12px;
+    border: 2px solid #e8b8cf;
+    border-radius: 10px;
+    background:#fff;
+    color:#3a2a22;
+  }
+  .whole-word-guess input:disabled{ opacity:0.55; }
+  .whole-word-guess button{
+    font-family: inherit;
+    font-size: 14px;
+    font-weight:700;
+    padding: 10px 16px;
+    border:none;
+    border-radius: 10px;
+    cursor:pointer;
+    background: linear-gradient(160deg,#c9e6ff,#9fd0ff);
+    box-shadow: 0 3px 0 #5aa3d9;
+    color:#13395a;
+  }
+  .whole-word-guess button:disabled{ cursor:default; opacity:0.55; box-shadow:none; }
+  .section-label{
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    opacity:0.55;
+    margin:0 0 6px;
+  }
+
+  /* ---------- End overlay ---------- */
+  #overlay{
+    display:none;
+    position: fixed;
+    inset:0;
+    background: rgba(30,15,20,0.45);
+    align-items:center;
+    justify-content:center;
+    z-index: 10;
+    padding: 20px;
+  }
+  .end-card{
+    background: var(--cream);
+    border-radius: 22px;
+    padding: 34px 30px;
+    text-align:center;
+    max-width: 380px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  }
+  .end-card h2{ margin-top:0; font-size: 26px; }
+  .end-card .word-reveal{ font-size:22px; font-weight:700; letter-spacing:2px; color:#a94a75; margin:10px 0 20px; }
+  .again-btn, .menu-btn{
+    font-family:inherit;
+    font-weight:700;
+    font-size:16px;
+    padding: 12px 26px;
+    border:none;
+    border-radius: 14px;
+    cursor:pointer;
+    margin: 6px;
+  }
+  .again-btn{ background: linear-gradient(160deg,#ffd0e6,#ff9fca); box-shadow:0 4px 0 #d9679f; color:#4a2d3a; }
+  .menu-btn{ background:#fff; box-shadow:0 4px 0 #ccc; color:#555; }
+
+  svg text{ font-family:'Trebuchet MS', sans-serif; }
+
+  @media (max-width:600px){
+    .corner{ font-size:34px; }
+    .board{ padding: 24px 14px 30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="corner tl">🌸</div>
+  <div class="corner tr">🌺</div>
+  <div class="corner bl">🌷</div>
+  <div class="corner br">🌼</div>
+
+  <div class="board">
+    <div class="title-wrap"><div class="title">KARĀTAVAS!</div></div>
+
+    <!-- Ekrāns 1: tēmas izvēle -->
+    <div id="screen-themes">
+      <p>Izvēlies tēmu, lai sāktu spēli</p>
+      <div class="theme-grid" id="theme-grid"></div>
+    </div>
+
+    <!-- Ekrāns 2: spēle -->
+    <div id="screen-game">
+      <div class="score-bar">
+        <span class="score-pill">Punkti: <span id="score-points">0</span></span>
+        <span class="score-pill">Uzvaras: <span id="score-wins">0</span></span>
+        <span class="score-pill">Zaudējumi: <span id="score-losses">0</span></span>
+      </div>
+
+      <div class="meta-row">
+        <span class="theme-tag" id="theme-label"></span>
+        <span class="attempts-left">Atlikušie mēģinājumi: <b id="attempts-num">7</b></span>
+      </div>
+
+      <div class="game-layout">
+        <div class="gallows-col">
+          <svg viewBox="0 0 220 240" width="100%" style="max-width:220px">
+            <!-- pamats -->
+            <line x1="20" y1="220" x2="140" y2="220" stroke="var(--wood)" stroke-width="8" stroke-linecap="round"/>
+            <line x1="55" y1="220" x2="55" y2="20" stroke="var(--wood)" stroke-width="8" stroke-linecap="round"/>
+            <line x1="55" y1="20" x2="150" y2="20" stroke="var(--wood)" stroke-width="8" stroke-linecap="round"/>
+            <line x1="120" y1="20" x2="55" y2="65" stroke="var(--wood)" stroke-width="8" stroke-linecap="round"/>
+            <line x1="150" y1="20" x2="150" y2="50" stroke="var(--wood)" stroke-width="5"/>
+
+            <!-- vīriņa daļas -->
+            <g id="part-head" style="display:none">
+              <circle cx="150" cy="78" r="26" fill="#ec3f8f" stroke="#a4144f" stroke-width="3"/>
+              <g id="face-alive">
+                <circle cx="141" cy="74" r="3" fill="#3a1030"/>
+                <circle cx="159" cy="74" r="3" fill="#3a1030"/>
+                <path d="M138 88 Q150 96 162 88" stroke="#3a1030" stroke-width="3" fill="none" stroke-linecap="round"/>
+              </g>
+              <g id="face-dead" style="display:none">
+                <path d="M135 68 L147 80 M147 68 L135 80" stroke="#3a1030" stroke-width="3" stroke-linecap="round"/>
+                <path d="M153 68 L165 80 M165 68 L153 80" stroke="#3a1030" stroke-width="3" stroke-linecap="round"/>
+                <path d="M138 90 Q150 100 162 90" stroke="#3a1030" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M147 92 Q150 100 153 92" stroke="#c23558" stroke-width="4" fill="none" stroke-linecap="round"/>
+              </g>
+            </g>
+            <line id="part-body" x1="150" y1="104" x2="150" y2="165" stroke="#2b1e1a" stroke-width="6" stroke-linecap="round" style="display:none"/>
+            <line id="part-arm-l" x1="150" y1="120" x2="122" y2="145" stroke="#2b1e1a" stroke-width="6" stroke-linecap="round" style="display:none"/>
+            <line id="part-arm-r" x1="150" y1="120" x2="178" y2="145" stroke="#2b1e1a" stroke-width="6" stroke-linecap="round" style="display:none"/>
+            <line id="part-leg-l" x1="150" y1="165" x2="125" y2="205" stroke="#2b1e1a" stroke-width="6" stroke-linecap="round" style="display:none"/>
+            <line id="part-leg-r" x1="150" y1="165" x2="175" y2="205" stroke="#2b1e1a" stroke-width="6" stroke-linecap="round" style="display:none"/>
+          </svg>
+
+          <div id="win-face" style="display:none;font-size:44px;margin-top:6px">🎉</div>
+        </div>
+
+        <div class="right-col">
+          <div class="loading-word" id="loading-word" style="display:none">Vārds tiek piešķirts... ⏳</div>
+          <div class="word-display" id="word-display"></div>
+
+          <p class="section-label">Minēt visu vārdu uzreiz</p>
+          <div class="whole-word-guess">
+            <input type="text" id="whole-word-input" placeholder="Ieraksti visu vārdu..." autocomplete="off">
+            <button id="whole-word-btn" onclick="guessWholeWord()">Minēt vārdu</button>
+          </div>
+
+          <p class="section-label">Vai minēt pa burtiem</p>
+          <div class="keyboard" id="keyboard"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="end-card">
+    <h2 id="end-title"></h2>
+    <div class="word-reveal" id="end-word"></div>
+    <button class="again-btn" onclick="playAgainSameTheme()">Spēlēt vēlreiz</button>
+    <button class="menu-btn" onclick="backToThemes()">Citu tēmu</button>
+  </div>
+</div>
+
+<script>
+// ---------- Datu bāze: tēmas un vārdi ----------
+const THEMES = {
+  "Dzīvnieki": ["LĀCIS","ZAĶIS","VILKS","LAPSA","ZIRGS","KAĶIS","SUNS","ČŪSKA","VĀVERE","LAUVA"],
+  "Augļi": ["ĀBOLS","BUMBIERIS","ZEMENE","VĪNOGA","CITRONS","BANĀNS","PLŪME","AVOKADO"],
+  "Krāsas": ["SARKANS","ZILS","DZELTENS","ZAĻŠ","MELNS","BALTS","ORANŽS","VIOLETS"],
+  "Profesijas": ["SKOLOTĀJS","ĀRSTS","PAVĀRS","MĀKSLINIEKS","ZVEJNIEKS","BŪVNIEKS"],
+  "Sports": ["FUTBOLS","BASKETBOLS","PELDĒŠANA","SKRIEŠANA","HOKEJS","TENISS"]
+};
+const ALPHABET = "AĀBCČDEĒFGĢHIĪJKĶLĻMNŅOPRSŠTUŪVZŽ".split("");
+const MAX_MISTAKES = 7;
+const HANGMAN_PARTS = ["part-head","part-body","part-arm-l","part-arm-r","part-leg-l","part-leg-r","face-dead-trigger"];
+const WORD_REGEX = /^[AĀBCČDEĒFGĢHIĪJKĶLĻMNŅOPRSŠTUŪVZŽ]{2,20}$/;
+
+let currentTheme = null;
+let currentWord = "";
+let guessedLetters = new Set();
+let mistakes = 0;
+let recentWords = []; // izvairāmies no viena un tā paša vārda atkārtošanās pēc kārtas
+
+let totalScore = 0;
+let totalWins = 0;
+let totalLosses = 0;
+
+// ---------- Vārda piešķiršana caur API (Claude sample) ----------
+let sampleAPI = null;
+(async function initSample(){
+  try{
+    if(window.claude && window.claude.use){
+      sampleAPI = await window.claude.use("sample");
+    }
+  }catch(e){
+    sampleAPI = null;
+  }
+})();
+
+async function fetchWordFromAPI(theme){
+  if(!sampleAPI) return null;
+  try{
+    const avoid = recentWords.length ? `Nedrīkst būt: ${recentWords.join(", ")}.` : "";
+    const prompt = `Tu esi vārdu piešķiršanas API spēlei "Karātavas". Izvēlies VIENU reālu latviešu valodas vārdu (lietvārdu), kas pieder tēmai "${theme}". Vārdam jābūt 3-14 burtus garam. ${avoid} Atbildi TIKAI ar JSON: {"vards":"VĀRDS"} - ar lielajiem burtiem, bez atstarpēm un pieturzīmēm, drīkst saturēt latviešu burtus ā,č,ē,ģ,ī,ķ,ļ,ņ,š,ū,ž. Neko citu neraksti.`;
+    const result = await sampleAPI.json(prompt, { modelTier: "quick" });
+    const word = result && result.vards ? String(result.vards).toUpperCase().trim() : "";
+    if(WORD_REGEX.test(word)){
+      return word;
+    }
+    return null;
+  }catch(e){
+    return null;
+  }
+}
+
+function fallbackWord(theme){
+  const words = THEMES[theme].filter(w => !recentWords.includes(w));
+  const pool = words.length ? words : THEMES[theme];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// ---------- 1. Tēmas izvēle ----------
+function buildThemeGrid(){
+  const grid = document.getElementById("theme-grid");
+  grid.innerHTML = "";
+  Object.keys(THEMES).forEach(theme=>{
+    const btn = document.createElement("button");
+    btn.className = "theme-btn";
+    btn.textContent = theme;
+    btn.onclick = () => startGame(theme);
+    grid.appendChild(btn);
+  });
+}
+
+function backToThemes(){
+  document.getElementById("overlay").style.display = "none";
+  document.getElementById("screen-game").style.display = "none";
+  document.getElementById("screen-themes").style.display = "block";
+}
+
+// ---------- 2. Spēles sākšana ----------
+async function startGame(theme){
+  currentTheme = theme;
+  guessedLetters = new Set();
+  mistakes = 0;
+
+  document.getElementById("theme-label").textContent = theme;
+  document.getElementById("screen-themes").style.display = "none";
+  document.getElementById("screen-game").style.display = "block";
+  document.getElementById("overlay").style.display = "none";
+
+  resetGallows();
+  updateAttemptsLabel();
+  updateScoreDisplay();
+
+  // vārda ielāde (caur API, ar vietējo rezervi, ja API nav pieejams)
+  document.getElementById("loading-word").style.display = "block";
+  document.getElementById("word-display").innerHTML = "";
+  document.getElementById("whole-word-input").value = "";
+  setInputsEnabled(false);
+
+  let word = await fetchWordFromAPI(theme);
+  if(!word){
+    word = fallbackWord(theme);
+  }
+  currentWord = word;
+  recentWords.push(word);
+  if(recentWords.length > 5) recentWords.shift();
+
+  document.getElementById("loading-word").style.display = "none";
+  buildWordDisplay();
+  buildKeyboard();
+  setInputsEnabled(true);
+}
+
+function playAgainSameTheme(){
+  startGame(currentTheme);
+}
+
+function resetGallows(){
+  HANGMAN_PARTS.forEach(id=>{
+    if(id === "face-dead-trigger") return;
+    const el = document.getElementById(id);
+    if(el) el.style.display = "none";
+  });
+  document.getElementById("face-alive").style.display = "block";
+  document.getElementById("face-dead").style.display = "none";
+  document.getElementById("win-face").style.display = "none";
+}
+
+// ---------- Vārda attēlošana ----------
+function buildWordDisplay(){
+  const wrap = document.getElementById("word-display");
+  wrap.innerHTML = "";
+  for(const ch of currentWord){
+    const slot = document.createElement("div");
+    slot.className = "letter-slot";
+    slot.dataset.letter = ch;
+    slot.textContent = guessedLetters.has(ch) ? ch : "";
+    wrap.appendChild(slot);
+  }
+}
+
+// ---------- Klaviatūra ----------
+function buildKeyboard(){
+  const kb = document.getElementById("keyboard");
+  kb.innerHTML = "";
+  ALPHABET.forEach(letter=>{
+    const key = document.createElement("button");
+    key.className = "key";
+    key.textContent = letter;
+    key.onclick = () => guessLetter(letter, key);
+    kb.appendChild(key);
+  });
+}
+
+function updateAttemptsLabel(){
+  document.getElementById("attempts-num").textContent = MAX_MISTAKES - mistakes;
+}
+
+// ---------- 3.-4. Burta pārbaude ----------
+function guessLetter(letter, keyEl){
+  keyEl.disabled = true;
+
+  if(currentWord.includes(letter)){
+    guessedLetters.add(letter);
+    keyEl.classList.add("correct");
+    buildWordDisplay();
+    checkWin();
+  } else {
+    keyEl.classList.add("wrong");
+    mistakes++;
+    updateAttemptsLabel();
+    revealNextGallowsPart();
+    checkLoss();
+  }
+}
+
+// ---------- Visa vārda minēšana uzreiz ----------
+function guessWholeWord(){
+  const input = document.getElementById("whole-word-input");
+  const guess = input.value.trim().toUpperCase();
+  if(!guess) return;
+  input.value = "";
+
+  if(guess === currentWord){
+    currentWord.split("").forEach(ch => guessedLetters.add(ch));
+    buildWordDisplay();
+    disableAllKeyboardKeys();
+    checkWin();
+  } else {
+    mistakes++;
+    updateAttemptsLabel();
+    revealNextGallowsPart();
+    checkLoss();
+  }
+}
+
+document.getElementById("whole-word-input").addEventListener("keydown", (e) => {
+  if(e.key === "Enter") guessWholeWord();
+});
+
+function setInputsEnabled(enabled){
+  const input = document.getElementById("whole-word-input");
+  const btn = document.getElementById("whole-word-btn");
+  if(input) input.disabled = !enabled;
+  if(btn) btn.disabled = !enabled;
+}
+
+function disableAllKeyboardKeys(){
+  document.querySelectorAll(".key").forEach(k => k.disabled = true);
+}
+
+function revealNextGallowsPart(){
+  const partId = HANGMAN_PARTS[mistakes-1];
+  if(partId === "face-dead-trigger"){
+    document.getElementById("face-alive").style.display = "none";
+    document.getElementById("face-dead").style.display = "block";
+    return;
+  }
+  const el = document.getElementById(partId);
+  if(el) el.style.display = "block";
+}
+
+// ---------- 6.-7. Spēles beigas ----------
+function checkWin(){
+  const allGuessed = [...currentWord].every(ch => guessedLetters.has(ch));
+  if(allGuessed){
+    document.getElementById("win-face").style.display = "block";
+    totalWins++;
+    totalScore += (MAX_MISTAKES - mistakes) * 10 + 20; // vairāk punktu par mazāk kļūdām
+    updateScoreDisplay();
+    showEnd(true);
+  }
+}
+
+function checkLoss(){
+  if(mistakes >= MAX_MISTAKES){
+    totalLosses++;
+    updateScoreDisplay();
+    showEnd(false);
+  }
+}
+
+function updateScoreDisplay(){
+  document.getElementById("score-points").textContent = totalScore;
+  document.getElementById("score-wins").textContent = totalWins;
+  document.getElementById("score-losses").textContent = totalLosses;
+}
+
+// ---------- Skaņas efekti (Web Audio API, nekādi ārējie faili nav vajadzīgi) ----------
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === "suspended"){ audioCtx.resume(); }
+  return audioCtx;
+}
+
+function playTone(freq, startTime, duration, type, volume){
+  try{
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime + startTime);
+    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + startTime);
+    osc.stop(ctx.currentTime + startTime + duration + 0.05);
+  }catch(e){ /* audio nav pieejams - vienkārši klusē */ }
+}
+
+function playWinSound(){
+  // priecīga "urā" melodija uz augšu
+  const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5 E5 G5 C6 E6
+  notes.forEach((freq, i) => playTone(freq, i*0.11, 0.28, "triangle", 0.22));
+}
+
+function playLoseSound(){
+  // skumja, lejupejoša melodija
+  const notes = [392.00, 349.23, 311.13, 261.63, 207.65]; // G4 F4 Eb4 C4 Ab3
+  notes.forEach((freq, i) => playTone(freq, i*0.2, 0.4, "sawtooth", 0.16));
+}
+
+function showEnd(won){
+  disableAllKeys();
+  const overlay = document.getElementById("overlay");
+  document.getElementById("end-title").textContent = won ? "Tu uzvarēji! 🎉" : "Šoreiz neizdevās...";
+  document.getElementById("end-word").textContent = "Vārds bija: " + currentWord;
+  overlay.style.display = "flex";
+  if(won){ playWinSound(); } else { playLoseSound(); }
+}
+
+function disableAllKeys(){
+  document.querySelectorAll(".key").forEach(k => k.disabled = true);
+  setInputsEnabled(false);
+}
+
+// ---------- Init ----------
+buildThemeGrid();
+</script>
+
+</body>
+</html>
